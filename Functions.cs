@@ -59,7 +59,7 @@ namespace TestAWSWebSocketApi
             try
             {
                 var connectionId = request.RequestContext.ConnectionId;
-                context.Logger.LogLine($"ConnectionId: {connectionId}");
+                context.Logger.LogLine($"ConnectionId for OnConnect: {connectionId}");
 
                 return new APIGatewayProxyResponse
                 {
