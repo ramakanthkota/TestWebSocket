@@ -1,0 +1,335 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "An AWS Serverless Application.",
+  "Parameters": {
+     "EnvironmentName": {
+          "Type": "String",
+          "Description": "Sets the ASPNETCORE_ENVIRONMENT variable as well as the API's StageName to this.",
+          "MinLength": "0"
+        },
+     "SAMAlias":{
+        "Type": "String",
+        "Default": "live"
+        }
+    },
+  "Resources": {
+    "OnConnectFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::OnConnectHandler",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "Tracing":"Active",
+        "AutoPublishAlias":{
+            "Ref":"SAMAlias"
+        },
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Environment": {
+          "Variables": {
+            "ASPNETCORE_ENVIRONMENT": {
+              "Ref": "EnvironmentName"
+            }
+          }
+        }
+      }
+    },
+    "OnDisconnectFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::OnDisconnectHandler",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Environment": {
+          "Variables": {
+            "ASPNETCORE_ENVIRONMENT": {
+              "Ref": "EnvironmentName"
+            }
+          }
+        }
+      }
+    },
+    "SendMessageFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::SendMessageHandler",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Environment": {
+          "Variables": {
+            "ASPNETCORE_ENVIRONMENT": {
+              "Ref": "EnvironmentName"
+            }
+          }
+        }        
+      }
+    },
+    "TestChatWebSocketApi": {
+      "Type": "AWS::ApiGatewayV2::Api",
+      "Properties": {
+        "Name": "SimpleChatWebSocket",
+        "ProtocolType": "WEBSOCKET",
+        "RouteSelectionExpression": "$request.body.action"
+      }
+    },
+    "ConnectRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "RouteKey": "$connect",
+        "AuthorizationType": "NONE",
+        "OperationName": "ConnectRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "ConnectInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "ConnectInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": [
+            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
+            {
+              "region": {
+                "Ref": "AWS::Region"
+              },
+              "function":{
+                "Fn::Join":[
+                    ":",
+                    [
+                        {
+                        "Fn::GetAtt":[
+                            "OnConnectFunction",
+                            "Arn"
+                        ]
+                        },
+                        { "Ref":"SAMAlias" }
+                    ]
+                ]
+              }            
+            }
+          ]
+        }
+      }
+    },
+    "DisconnectRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "RouteKey": "$disconnect",
+        "AuthorizationType": "NONE",
+        "OperationName": "ConnectRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "DisconnectInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "DisconnectInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": [
+            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
+            {
+              "region": {
+                "Ref": "AWS::Region"
+              },
+              "function": {
+                "Fn::GetAtt": [
+                  "OnDisconnectFunction",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SendMessageRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "RouteKey": "sendmessage",
+        "AuthorizationType": "NONE",
+        "OperationName": "ConnectRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "SendMessageInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "SendMessageInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": [
+            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
+            {
+              "region": {
+                "Ref": "AWS::Region"
+              },
+              "function": {
+                "Fn::GetAtt": [
+                  "SendMessageFunction",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Deployment": {
+      "Type": "AWS::ApiGatewayV2::Deployment",
+      "DependsOn": [
+        "ConnectRoute",
+        "SendMessageRoute",
+        "DisconnectRoute"
+      ],
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        }
+      }
+    },
+    "Stage": {
+      "Type": "AWS::ApiGatewayV2::Stage",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "DeploymentId": {
+          "Ref": "Deployment"
+        },
+        "StageName": {"Ref": "EnvironmentName"}
+      }
+    },
+    "OnConnectPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "OnConnectFunction",
+        "TestChatWebSocketApi"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::Join":[
+                    ":",
+                    [
+                        {
+                        "Fn::GetAtt":[
+                            "OnConnectFunction",
+                            "Arn"
+                        ]
+                        },
+                        { "Ref":"SAMAlias" }
+                    ]
+                ]
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "OnDisconnectPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "OnDisconnectFunction",
+        "TestChatWebSocketApi"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "OnDisconnectFunction"
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "SendMessagePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [
+        "SendMessageFunction",
+        "TestChatWebSocketApi"
+      ],
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "SendMessageFunction"
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    }
+  },
+  "Outputs": {
+    "WebSocketURI": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "wss://",
+            {
+              "Ref": "TestChatWebSocketApi"
+            },
+            ".execute-api.",
+            {
+              "Ref": "AWS::Region"
+            },
+            ".amazonaws.com/",
+            {
+              "Ref": "Stage"
+            }
+          ]
+        ]
+      },
+      "Description": "The WSS Protocol URI to connect to"
+    }
+  }
+}
