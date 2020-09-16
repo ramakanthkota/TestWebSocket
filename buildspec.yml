@@ -1,0 +1,29 @@
+version: 0.2
+
+env:
+  variables:
+    ENVIRONMENT: Development
+
+phases:
+  install:
+    runtime-versions:
+        dotnet: 3.1
+  pre_build:
+    commands:
+      - echo Installing Lambda tools
+      - dotnet tool install -g Amazon.Lambda.Tools
+      - echo Installation completed.
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - dotnet build TestAWSWebSocketApi.sln
+      # - dotnet build Lila.ChatWebsocket.sln
+      - export BUCKET=serverless-lambda-deployment-artifacts
+      - echo Build Completed!
+    
+  post_build:
+    commands:
+      - echo deploy the built output to Lambda
+      - cd TestAWSWebSocketApi
+      - dotnet lambda deploy-serverless -sn ChatWebSocket --self-contained false --s3-bucket $BUCKET -tp EnvironmentName=${ENVIRONMENT}

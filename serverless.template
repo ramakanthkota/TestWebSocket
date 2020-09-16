@@ -36,24 +36,6 @@
         }
       }
     },
-    "OnDisconnectFunction": {
-      "Type": "AWS::Serverless::Function",
-      "Properties": {
-        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::OnDisconnectHandler",
-        "Runtime": "dotnetcore3.1",
-        "CodeUri": "",
-        "MemorySize": 256,
-        "Timeout": 30,
-        "Role": null,
-        "Environment": {
-          "Variables": {
-            "ASPNETCORE_ENVIRONMENT": {
-              "Ref": "EnvironmentName"
-            }
-          }
-        }
-      }
-    },
     "SendMessageFunction": {
       "Type": "AWS::Serverless::Function",
       "Properties": {
@@ -135,53 +117,6 @@
         }
       }
     },
-    "DisconnectRoute": {
-      "Type": "AWS::ApiGatewayV2::Route",
-      "Properties": {
-        "ApiId": {
-          "Ref": "TestChatWebSocketApi"
-        },
-        "RouteKey": "$disconnect",
-        "AuthorizationType": "NONE",
-        "OperationName": "ConnectRoute",
-        "Target": {
-          "Fn::Join": [
-            "/",
-            [
-              "integrations",
-              {
-                "Ref": "DisconnectInteg"
-              }
-            ]
-          ]
-        }
-      }
-    },
-    "DisconnectInteg": {
-      "Type": "AWS::ApiGatewayV2::Integration",
-      "Properties": {
-        "ApiId": {
-          "Ref": "TestChatWebSocketApi"
-        },
-        "IntegrationType": "AWS_PROXY",
-        "IntegrationUri": {
-          "Fn::Sub": [
-            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
-            {
-              "region": {
-                "Ref": "AWS::Region"
-              },
-              "function": {
-                "Fn::GetAtt": [
-                  "OnDisconnectFunction",
-                  "Arn"
-                ]
-              }
-            }
-          ]
-        }
-      }
-    },
     "SendMessageRoute": {
       "Type": "AWS::ApiGatewayV2::Route",
       "Properties": {
@@ -233,8 +168,7 @@
       "Type": "AWS::ApiGatewayV2::Deployment",
       "DependsOn": [
         "ConnectRoute",
-        "SendMessageRoute",
-        "DisconnectRoute"
+        "SendMessageRoute"
       ],
       "Properties": {
         "ApiId": {
@@ -275,20 +209,6 @@
                         { "Ref":"SAMAlias" }
                     ]
                 ]
-        },
-        "Principal": "apigateway.amazonaws.com"
-      }
-    },
-    "OnDisconnectPermission": {
-      "Type": "AWS::Lambda::Permission",
-      "DependsOn": [
-        "OnDisconnectFunction",
-        "TestChatWebSocketApi"
-      ],
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Ref": "OnDisconnectFunction"
         },
         "Principal": "apigateway.amazonaws.com"
       }

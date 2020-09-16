@@ -2,7 +2,6 @@ using Amazon.ApiGatewayManagementApi;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -79,6 +78,7 @@ namespace TestAWSWebSocketApi
                 };
             }
         }
+
         //Test 12
         public async Task<APIGatewayProxyResponse> SendMessageHandler(APIGatewayProxyRequest request, ILambdaContext context)
         {
