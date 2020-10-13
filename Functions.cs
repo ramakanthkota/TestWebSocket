@@ -58,6 +58,7 @@ namespace TestAWSWebSocketApi
         {
             try
             {
+                //. test12
                 var connectionId = request.RequestContext.ConnectionId;
                 context.Logger.LogLine($"ConnectionId for OnConnect: {connectionId}");
 
@@ -84,7 +85,7 @@ namespace TestAWSWebSocketApi
         {
             try
             {
-                // Construct the API Gateway endpoint that incoming message will be broadcasted to.
+                // Construct the API Gateway endpoint that incoming message will be broadcasted to.12
                 var domainName = request.RequestContext.DomainName;
                 var stage = request.RequestContext.Stage;
                 var endpoint = $"https://{domainName}/{stage}";
@@ -110,7 +111,7 @@ namespace TestAWSWebSocketApi
                 // Construct the IAmazonApiGatewayManagementApi which will be used to send the message to.
                 var apiClient = ApiGatewayManagementApiClientFactory(endpoint);
 
-                // Loop through all of the connections and broadcast the message out to the connections.
+                // Loop through all of the connections and broadcast the message out to the connections. test
                 var count = 0;
                 return new APIGatewayProxyResponse
                 {
@@ -134,6 +135,7 @@ namespace TestAWSWebSocketApi
         {
             try
             {
+                //test12
                 var connectionId = request.RequestContext.ConnectionId;
                 context.Logger.LogLine($"ConnectionId: {connectionId}");
 
@@ -151,6 +153,57 @@ namespace TestAWSWebSocketApi
                 {
                     StatusCode = 500,
                     Body = $"Failed to disconnect: {e.Message}"
+                };
+            }
+        }
+
+        //Test 12
+        public async Task<APIGatewayProxyResponse> OnBlockHandler(APIGatewayProxyRequest request, ILambdaContext context)
+        {
+            try
+            {
+                // Construct the API Gateway endpoint that incoming message will be broadcasted to.1
+                var domainName = request.RequestContext.DomainName;
+                var stage = request.RequestContext.Stage;
+                var endpoint = $"https://{domainName}/{stage}";
+                context.Logger.LogLine($"API Gateway management endpoint: {endpoint}");
+
+                // The body will look something like this: {"message":"blockuser", "data":"What are you doing?"}
+                JsonDocument message = JsonDocument.Parse(request.Body);
+
+                // Grab the data from the JSON body which is the message to broadcasted.
+                JsonElement dataProperty;
+                if (!message.RootElement.TryGetProperty("data", out dataProperty))
+                {
+                    context.Logger.LogLine("Failed to find data element in JSON document");
+                    return new APIGatewayProxyResponse
+                    {
+                        StatusCode = (int)HttpStatusCode.BadRequest
+                    };
+                }
+
+                var data = dataProperty.GetString();
+                var stream = new MemoryStream(UTF8Encoding.UTF8.GetBytes(data));
+
+                // Construct the IAmazonApiGatewayManagementApi which will be used to send the message to.
+                var apiClient = ApiGatewayManagementApiClientFactory(endpoint);
+
+                // Loop through all of the connections and broadcast the message out to the connections. test
+                var count = 0;
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = (int)HttpStatusCode.OK,
+                    Body = "Data sent to " + count + " connection" + (count == 1 ? "" : "s")
+                };
+            }
+            catch (Exception e)
+            {
+                context.Logger.LogLine("Error disconnecting: " + e.Message);
+                context.Logger.LogLine(e.StackTrace);
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError,
+                    Body = $"Failed to send message: {e.Message}"
                 };
             }
         }
