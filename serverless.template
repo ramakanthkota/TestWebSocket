@@ -119,6 +119,27 @@
         }        
       }
     },
+    "OnMatchFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::OnMatchHandler",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "AutoPublishAlias":{
+            "Ref":"SAMAlias"
+        },
+        "Role": null,
+        "Environment": {
+          "Variables": {
+            "ASPNETCORE_ENVIRONMENT": {
+              "Ref": "EnvironmentName"
+            }
+          }
+        }        
+      }
+    },
     "TestChatWebSocketApi": {
       "Type": "AWS::ApiGatewayV2::Api",
       "Properties": {
@@ -353,7 +374,7 @@
         "ApiId": {
           "Ref": "TestChatWebSocketApi"
         },
-        "RouteKey": "block",
+        "RouteKey": "reaction",
         "AuthorizationType": "NONE",
         "OperationName": "OnReactionRoute",
         "Target": {
@@ -402,6 +423,61 @@
         }
       }
     },
+    "OnMatchRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "RouteKey": "match",
+        "AuthorizationType": "NONE",
+        "OperationName": "OnMatchRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "OnReactionInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "OnMatchInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": [
+            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
+            {
+              "region": {
+                "Ref": "AWS::Region"
+              },
+              "function": {
+               "Fn::Join":[
+                    ":",
+                    [
+                        {
+                        "Fn::GetAtt":[
+                            "OnMatchFunction",
+                            "Arn"
+                        ]
+                        },
+                        { "Ref":"SAMAlias" }
+                    ]
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "Deployment": {
       "Type": "AWS::ApiGatewayV2::Deployment",
       "DependsOn": [
@@ -409,7 +485,8 @@
         "DisconnectRoute",
         "SendMessageRoute",
         "OnBlockRoute",
-        "OnReactionRoute"
+        "OnReactionRoute",
+        "OnMatchRoute"
       ],
       "Properties": {
         "ApiId": {
@@ -486,6 +563,17 @@
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Ref": "OnReactionFunction"
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "OnMatchPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": "TestChatWebSocketApi",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "OnMatchFunction"
         },
         "Principal": "apigateway.amazonaws.com"
       }
