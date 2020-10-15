@@ -98,6 +98,27 @@
         }        
       }
     },
+    "OnReactionFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TestAWSWebSocketApi::TestAWSWebSocketApi.Functions::OnReactionHandler",
+        "Runtime": "dotnetcore3.1",
+        "CodeUri": "",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "AutoPublishAlias":{
+            "Ref":"SAMAlias"
+        },
+        "Role": null,
+        "Environment": {
+          "Variables": {
+            "ASPNETCORE_ENVIRONMENT": {
+              "Ref": "EnvironmentName"
+            }
+          }
+        }        
+      }
+    },
     "TestChatWebSocketApi": {
       "Type": "AWS::ApiGatewayV2::Api",
       "Properties": {
@@ -224,7 +245,7 @@
         },
         "RouteKey": "sendmessage",
         "AuthorizationType": "NONE",
-        "OperationName": "ConnectRoute",
+        "OperationName": "SendMessageRoute",
         "Target": {
           "Fn::Join": [
             "/",
@@ -326,13 +347,69 @@
         }
       }
     },
+    "OnReactionRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "RouteKey": "block",
+        "AuthorizationType": "NONE",
+        "OperationName": "OnReactionRoute",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "OnReactionInteg"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "OnReactionInteg": {
+      "Type": "AWS::ApiGatewayV2::Integration",
+      "Properties": {
+        "ApiId": {
+          "Ref": "TestChatWebSocketApi"
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::Sub": [
+            "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${function}/invocations",
+            {
+              "region": {
+                "Ref": "AWS::Region"
+              },
+              "function": {
+               "Fn::Join":[
+                    ":",
+                    [
+                        {
+                        "Fn::GetAtt":[
+                            "OnReactionFunction",
+                            "Arn"
+                        ]
+                        },
+                        { "Ref":"SAMAlias" }
+                    ]
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
     "Deployment": {
       "Type": "AWS::ApiGatewayV2::Deployment",
       "DependsOn": [
         "ConnectRoute",
         "DisconnectRoute",
         "SendMessageRoute",
-        "OnBlockRoute"
+        "OnBlockRoute",
+        "OnReactionRoute"
       ],
       "Properties": {
         "ApiId": {
@@ -354,10 +431,7 @@
     },
     "OnConnectPermission": {
       "Type": "AWS::Lambda::Permission",
-      "DependsOn": [
-        "OnConnectFunction",
-        "TestChatWebSocketApi"
-      ],
+      "DependsOn": "TestChatWebSocketApi",
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
@@ -371,10 +445,7 @@
     },
     "OnDisconnectPermission": {
       "Type": "AWS::Lambda::Permission",
-      "DependsOn": [
-        "OnDisconnectFunction",
-        "TestChatWebSocketApi"
-      ],
+      "DependsOn": "TestChatWebSocketApi",
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
@@ -388,10 +459,7 @@
     },
     "SendMessagePermission": {
       "Type": "AWS::Lambda::Permission",
-      "DependsOn": [
-        "SendMessageFunction",
-        "TestChatWebSocketApi"
-      ],
+      "DependsOn": "TestChatWebSocketApi",
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
@@ -402,14 +470,22 @@
     },
     "OnBlockPermission": {
       "Type": "AWS::Lambda::Permission",
-      "DependsOn": [
-        "OnBlockFunction",
-        "TestChatWebSocketApi"
-      ],
+      "DependsOn": "TestChatWebSocketApi",
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Ref": "OnBlockFunction"
+        },
+        "Principal": "apigateway.amazonaws.com"
+      }
+    },
+    "OnReactionPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": "TestChatWebSocketApi",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "OnReactionFunction"
         },
         "Principal": "apigateway.amazonaws.com"
       }
